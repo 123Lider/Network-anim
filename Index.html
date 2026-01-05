@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Speed Network Animation</title>
+    <style>
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050011; 
+        }
+
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+
+        .glow-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.15), transparent 80%);
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glow-bg"></div>
+    <canvas id="networkCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('networkCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let particles = [];
+        
+        // --- কনফিগারেশন (ইচ্ছা করলে চেঞ
+        const particleCount = 100;  // ডট এর সংখ্যা একটু বাড়িয়েছি
+        const connectionDistance = 90; // কত কাছে আসলে লাইন হবে
+        const speed = 12; // আগে এটা ২ ছিল, এখন ৪ করে দিয়েছি (Fast)
+        // ------------------------------------------
+
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+
+        let mouse = { x: null, y: null, radius: 150 };
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = event.x;
+            mouse.y = event.y;
+        });
+        
+        window.addEventListener('mouseout', () => {
+            mouse.x = undefined;
+            mouse.y = undefined;
+        });
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                
+                // গতি বাড়ানো হয়েছে speed ভেরিয়েবল দিয়ে
+                this.vx = (Math.random() - 0.5) * speed; 
+                this.vy = (Math.random() - 0.5) * speed; 
+                
+                this.size = Math.random() * 3 + 1;
+                // রঙের শেড (বেগুনি, পিংক, নীলচে)
+                const colors = ['#ff00ff', '#8a2be2', '#9400d3', '#00eaff']; 
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8; 
+                ctx.shadowColor = this.color;
+                ctx.fill();
+            }
+
+            update() {
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // স্ক্রিনের বাইরে গেলে বাউন্স করবে (বিপরীত দিকে ঘুরবে)
+                if (this.x < 0 || this.x > canvas.width) this.vx = -this.vx;
+                if (this.y < 0 || this.y > canvas.height) this.vy = -this.vy;
+
+                // মাউস ইন্টারঅ্যাকশন (মাউস কাছে আসলে দূরে ছিটকে যাবে না, বরং কানেক্ট হবে)
+                // যদি চাও মাউস দেখলে সরে যাবে, তাহলে নিচের কোডটুকু রাখতে পারো।
+                // আর যদি চাও মাউস দেখলে কিছুই হবে না, নিচের if ব্লকটা ডিলিট করে দিও।
+                /*
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < mouse.radius) {
+                   if (mouse.x < this.x && this.x < canvas.width - this.size * 10) this.x += 1;
+                   if (mouse.x > this.x && this.x > this.size * 10) this.x -= 1;
+                   if (mouse.y < this.y && this.y < canvas.height - this.size * 10) this.y += 1;
+                   if (mouse.y > this.y && this.y > this.size * 10) this.y -= 1;
+                }
+                */
+
+                this.draw();
+            }
+        }
+
+        function init() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function connect() {
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    let dx = particles[a].x - particles[b].x;
+                    let dy = particles[a].y - particles[b].y;
+                    let distance = dx * dx + dy * dy;
+
+                    if (distance < connectionDistance * connectionDistance) {
+                        let opacityValue = 1 - (distance / (connectionDistance * connectionDistance));
+                        ctx.strokeStyle = 'rgba(200, 0, 255,' + opacityValue + ')';
+                        ctx.lineWidth = 1; // লাইনের বেধ
+                        ctx.beginPath();
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        // এনিমেশন লুপ
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+            }
+            connect();
+        }
+
+        init();
+        animate();
+
+    </script>
+</body>
+</html>
